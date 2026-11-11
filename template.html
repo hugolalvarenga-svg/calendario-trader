@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Central de Notícias Económicas - Trader</title>
+    <title>Farol Decimal - Central de Notícias</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
@@ -15,13 +15,27 @@
 <body class="p-6">
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-slate-800 gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-                    📊 Central de Notícias & Guia Macro
-                </h1>
-                <p class="text-sm text-slate-400 mt-1">
-                    Clique em qualquer evento na tabela para ver a explicação detalhada e os índices afetados.
-                </p>
+            <div class="flex items-center gap-4">
+                <!-- Logótipo Farol -->
+                <div class="flex flex-col items-center bg-slate-900 border border-slate-700 px-3 py-2 rounded-xl shadow-md">
+                    <svg class="w-9 h-9 text-emerald-400" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="18" y="60" width="14" height="25" rx="1"/>
+                        <rect x="43" y="40" width="14" height="45" rx="1"/>
+                        <rect x="68" y="20" width="14" height="65" rx="1"/>
+                        <line x1="10" y1="85" x2="90" y2="85" stroke-width="6"/>
+                        <line x1="15" y1="55" x2="78" y2="15" stroke-width="6"/>
+                        <polyline points="58,15 78,15 78,35" stroke-width="6"/>
+                    </svg>
+                    <span class="text-[10px] font-serif font-bold tracking-widest text-slate-200 uppercase mt-0.5">FAROL</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                        Farol Decimal <span class="text-emerald-400 font-normal text-lg">| Central de Notícias</span>
+                    </h1>
+                    <p class="text-sm text-slate-400 mt-1">
+                        Semana Corrente: <span class="text-emerald-400 font-medium">__DATA_INICIO_ATUAL__</span> a <span class="text-emerald-400 font-medium">__DATA_FIM_ATUAL__</span>
+                    </p>
+                </div>
             </div>
             <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 text-xs text-slate-300">
                 <span class="font-bold text-slate-200">Índices Monitorizados:</span> US30, US500, NAS100, GER40, FRA40, UK100, JPN225, HK50
@@ -150,18 +164,17 @@
         const hojeStr = "__HOJE_STR__";
         const trintaDiasAtrasStr = "__TRINTA_DIAS_ATRAS__";
 
-        // Glossário de Explicação dos Principais Eventos Macroeconómicos
         const glossario = [
-            { termos: ["retail sales", "vendas ao retalho"], desc: "Mede o volume total de vendas no comércio a retalho. É o principal indicador do consumo das famílias (que representa mais de 60% do PIB dos EUA). Valores acima do esperado geram volatilidade positiva para a moeda e pressionam as taxas de juro." },
-            { termos: ["cpi", "consumer price", "inflacao", "inflação"], desc: "Índice de Preços ao Consumidor (Inflação). Mede a variação dos preços de bens e serviços. Dados mais altos que o esperado sinalizam pressão para o Banco Central subir taxas de juro, o que costuma causar quedas rápidas nos índices de ações." },
-            { termos: ["nfp", "non-farm", "nonfarm", "employment change", "unemployment rate", "desemprego"], desc: "Relatório de Emprego (Non-Farm Payrolls / Taxa de Desemprego). É um dos eventos de maior volatilidade do mercado. Mede a criação de postos de trabalho e a saúde do mercado laboral." },
+            { termos: ["retail sales", "vendas ao retalho"], desc: "Mede o volume total de vendas no comércio a retalho. É o principal indicador do consumo das famílias. Valores acima do esperado geram volatilidade positiva para a moeda e pressionam as taxas de juro." },
+            { termos: ["cpi", "consumer price", "inflacao", "inflação"], desc: "Índice de Preços ao Consumidor (Inflação). Mede a variação dos preços de bens e serviços. Dados mais altos que o esperado sinalizam pressão para o Banco Central subir taxas de juro." },
+            { termos: ["nfp", "non-farm", "nonfarm", "employment change", "unemployment rate", "desemprego"], desc: "Relatório de Emprego (Non-Farm Payrolls / Taxa de Desemprego). É um dos eventos de maior volatilidade do mercado. Mede a criação de postos de trabalho." },
             { termos: ["gdp", "pib", "gross domestic"], desc: "Produto Interno Bruto. Mede o crescimento económico total do país. Um PIB forte fortalece os índices acionistas a médio prazo." },
-            { termos: ["pmi", "purchasing managers"], desc: "Índice de Gerentes de Compras. Mede a atividade económica do setor industrial ou de serviços. Valores acima de 50 indicam expansão económica; abaixo de 50 indicam contração." },
-            { termos: ["industrial production", "producao industrial"], desc: "Mede a produção física das fábricas, minas e empresas de serviços públicos. Indicador direto do vigor do setor industrial da economia." },
+            { termos: ["pmi", "purchasing managers"], desc: "Índice de Gerentes de Compras. Mede a atividade económica do setor industrial ou de serviços. Valores acima de 50 indicam expansão económica." },
+            { termos: ["industrial production", "producao industrial"], desc: "Mede a produção física das fábricas, minas e empresas de serviços públicos. Indicador direto do vigor do setor industrial." },
             { termos: ["fixed asset investment", "investimento em ativos fixos"], desc: "Mede os gastos em infraestruturas, edifícios e maquinaria na China. Indicador vital para medir o investimento estatal e privado chinês." },
-            { termos: ["press conference", "conferencia de imprensa", "fomc", "ecb", "boj", "boe"], desc: "Conferência de imprensa do Banco Central. Os governadores explicam as decisões de política monetária e dão pistas sobre futuras subidas ou descidas de juros." },
-            { termos: ["rate decision", "interest rate", "taxa de juro"], desc: "Decisão sobre a Taxa de Juro Director do Banco Central. O evento macroeconómico de maior impacto estrutural nas bolsas e no câmbio." },
-            { termos: ["inventories", "stocks"], desc: "Mede o valor dos bens não vendidos nas empresas. Aumentos excessivos podem indicar abrandamento da procura consumidora." }
+            { termos: ["press conference", "conferencia de imprensa", "fomc", "ecb", "boj", "boe"], desc: "Conferência de imprensa do Banco Central. Os governadores explicam as decisões de política monetária." },
+            { termos: ["rate decision", "interest rate", "taxa de juro"], desc: "Decisão sobre a Taxa de Juro Director do Banco Central. O evento macroeconómico de maior impacto estrutural nas bolsas." },
+            { termos: ["inventories", "stocks"], desc: "Mede o valor dos bens não vendidos nas empresas. Aumentos excessivos podem indicar abrandamento da procura." }
         ];
 
         function obterIndicesAfetados(moeda) {
