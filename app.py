@@ -58,37 +58,24 @@ def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
 def obter_dados_macro():
     hoje = datetime.now()
     segunda_atual = hoje - timedelta(days=hoje.weekday())
-    domingo_atual = segunda_atual + timedelta(days=6)
-    segunda_prox = segunda_atual + timedelta(days=7)
-    domingo_prox = segunda_atual + timedelta(days=13)
-    trinta_dias_atras = hoje - timedelta(days=30)
 
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    # 1. Pedido Exclusivo da Semana Atual
-    dados_semana_atual = descarregar_noticias_intervalo(
-        segunda_atual.strftime("%Y-%m-%d"), 
-        domingo_atual.strftime("%Y-%m-%d"), 
-        ctx
-    )
-    
-    # 2. Pedido Exclusivo da Próxima Semana (Impede que a API omita registos)
-    dados_semana_prox = descarregar_noticias_intervalo(
-        segunda_prox.strftime("%Y-%m-%d"), 
-        domingo_prox.strftime("%Y-%m-%d"), 
-        ctx
-    )
-    
-    # 3. Pedido Exclusivo do Histórico Passado (últimos 30 dias até ao início desta semana)
-    dados_passados = descarregar_noticias_intervalo(
-        trinta_dias_atras.strftime("%Y-%m-%d"), 
-        (segunda_atual - timedelta(days=1)).strftime("%Y-%m-%d"), 
-        ctx
-    )
+    # Divide a consulta em 6 blocos de 7 dias (-4 semanas passadas até +1 semana futura)
+    # Impede que a API estoure o limite de registos por resposta
+    todos_dados = []
+    for i in range(-4, 2):
+        inicio_bloco = segunda_atual + timedelta(weeks=i)
+        fim_bloco = inicio_bloco + timedelta(days=6)
+        dados_bloco = descarregar_noticias_intervalo(
+            inicio_bloco.strftime("%Y-%m-%d"), 
+            fim_bloco.strftime("%Y-%m-%d"), 
+            ctx
+        )
+        todos_dados.extend(dados_bloco)
 
-    todos_dados = dados_passados + dados_semana_atual + dados_semana_prox
     todos_registos = []
     chaves_vistas = set()
 
