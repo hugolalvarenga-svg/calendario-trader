@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central de Notícias Económicas - Trader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+        .bg-high { background-color: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
+        .bg-medium { background-color: #7c2d12; color: #fdba74; border: 1px solid #f97316; }
+        .bg-holiday { background-color: #1e3a8a; color: #93c5fd; border: 1px solid #3b82f6; }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-slate-800 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                    📊 Central de Notícias & Guia Macro
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">
+                    Clique em qualquer evento na tabela para ver a explicação detalhada e os índices afetados.
+                </p>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 text-xs text-slate-300">
+                <span class="font-bold text-slate-200">Índices Monitorizados:</span> US30, US500, NAS100, GER40, FRA40, UK100, JPN225, HK50
+            </div>
+        </header>
+
+        <!-- Filtros do Painel -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Período de Tempo:</label>
+                <select id="periodoFilter" onchange="filtrarTabela()" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-medium">
+                    <option value="SEMANA_ATUAL" selected>Semana Atual (Corrente)</option>
+                    <option value="PROXIMA_SEMANA">Próxima Semana (Planeamento)</option>
+                    <option value="ULTIMOS_30">Últimos 30 Dias</option>
+                    <option value="TODOS">Todo o Histórico Acumulado</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Ordem Horária:</label>
+                <select id="ordemFilter" onchange="filtrarTabela()" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                    <option value="ASC">Cronológica (00:00 ➔ 23:59)</option>
+                    <option value="DESC">Inversa (Mais Recente Primeiro)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Pesquisar Evento:</label>
+                <input type="text" id="searchInput" onkeyup="filtrarTabela()" placeholder="Ex: CPI, NFP, Retail, Rate..." class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Moeda / Região:</label>
+                <select id="moedaFilter" onchange="filtrarTabela()" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                    <option value="TODAS">Todas as Moedas</option>
+                    <option value="USD">USD (US30, US500, NAS100)</option>
+                    <option value="EUR">EUR (GER40, FRA40)</option>
+                    <option value="GBP">GBP (UK100)</option>
+                    <option value="JPY">JPY (JPN225)</option>
+                    <option value="HKD">HKD / CNY (HK50)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Nível de Impacto:</label>
+                <select id="impactoFilter" onchange="filtrarTabela()" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                    <option value="TODOS">Todos os Impactos</option>
+                    <option value="High">Alto Impacto (High)</option>
+                    <option value="Medium">Médio Impacto (Medium)</option>
+                    <option value="Holiday">Feriados Bancários</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Tabela -->
+        <div class="overflow-x-auto bg-slate-900 rounded-lg border border-slate-800 shadow-xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-800 text-slate-300 text-xs uppercase tracking-wider border-b border-slate-700">
+                        <th class="p-3">Data / Hora (UTC)</th>
+                        <th class="p-3">Moeda</th>
+                        <th class="p-3">Impacto</th>
+                        <th class="p-3">Evento Económico</th>
+                        <th class="p-3 text-right">Real (Actual)</th>
+                        <th class="p-3 text-right">Previsão</th>
+                        <th class="p-3 text-right">Anterior</th>
+                        <th class="p-3 text-center">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaCorpo" class="divide-y divide-slate-800 text-sm">
+                </tbody>
+            </table>
+        </div>
+        <div id="semResultados" class="hidden text-center py-8 text-slate-500 text-sm">Nenhum evento encontrado para os filtros selecionados.</div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="modalDetalhes" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-2xl w-full shadow-2xl relative">
+            <button onclick="fecharModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+            
+            <div class="flex items-center gap-3 mb-4">
+                <span id="modalMoeda" class="font-bold text-lg text-emerald-400 bg-slate-800 px-3 py-1 rounded border border-slate-700"></span>
+                <span id="modalImpacto" class="text-xs px-2 py-1 rounded font-semibold"></span>
+                <h2 id="modalTitulo" class="text-lg font-bold text-white"></h2>
+            </div>
+
+            <div class="space-y-4 text-sm">
+                <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-800">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">📈 Índices Pepperstone Afetados:</span>
+                    <p id="modalIndices" class="text-emerald-300 font-medium text-base"></p>
+                </div>
+
+                <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-800">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">💡 O que mede este evento:</span>
+                    <p id="modalExplicacao" class="text-slate-200 leading-relaxed"></p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 bg-slate-800/40 p-3 rounded-lg text-center font-mono text-xs">
+                    <div>
+                        <span class="text-slate-400 block mb-1">Real</span>
+                        <span id="modalReal" class="font-bold text-white text-sm"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block mb-1">Previsão</span>
+                        <span id="modalPrevisao" class="font-bold text-slate-300 text-sm"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block mb-1">Anterior</span>
+                        <span id="modalAnterior" class="font-bold text-slate-400 text-sm"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
+                <a id="modalLinkGoogle" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded text-xs transition-colors flex items-center gap-2">
+                    🔍 Pesquisar Análise sobre este Evento
+                </a>
+                <button onclick="fecharModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded text-xs">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dados = __DADOS_JSON__;
+        const inicioAtual = "__DATA_INICIO_ATUAL__";
+        const fimAtual = "__DATA_FIM_ATUAL__";
+        const inicioProx = "__DATA_INICIO_PROX__";
+        const fimProx = "__DATA_FIM_PROX__";
+        const hojeStr = "__HOJE_STR__";
+        const trintaDiasAtrasStr = "__TRINTA_DIAS_ATRAS__";
+
+        // Glossário de Explicação dos Principais Eventos Macroeconómicos
+        const glossario = [
+            { termos: ["retail sales", "vendas ao retalho"], desc: "Mede o volume total de vendas no comércio a retalho. É o principal indicador do consumo das famílias (que representa mais de 60% do PIB dos EUA). Valores acima do esperado geram volatilidade positiva para a moeda e pressionam as taxas de juro." },
+            { termos: ["cpi", "consumer price", "inflacao", "inflação"], desc: "Índice de Preços ao Consumidor (Inflação). Mede a variação dos preços de bens e serviços. Dados mais altos que o esperado sinalizam pressão para o Banco Central subir taxas de juro, o que costuma causar quedas rápidas nos índices de ações." },
+            { termos: ["nfp", "non-farm", "nonfarm", "employment change", "unemployment rate", "desemprego"], desc: "Relatório de Emprego (Non-Farm Payrolls / Taxa de Desemprego). É um dos eventos de maior volatilidade do mercado. Mede a criação de postos de trabalho e a saúde do mercado laboral." },
+            { termos: ["gdp", "pib", "gross domestic"], desc: "Produto Interno Bruto. Mede o crescimento económico total do país. Um PIB forte fortalece os índices acionistas a médio prazo." },
+            { termos: ["pmi", "purchasing managers"], desc: "Índice de Gerentes de Compras. Mede a atividade económica do setor industrial ou de serviços. Valores acima de 50 indicam expansão económica; abaixo de 50 indicam contração." },
+            { termos: ["industrial production", "producao industrial"], desc: "Mede a produção física das fábricas, minas e empresas de serviços públicos. Indicador direto do vigor do setor industrial da economia." },
+            { termos: ["fixed asset investment", "investimento em ativos fixos"], desc: "Mede os gastos em infraestruturas, edifícios e maquinaria na China. Indicador vital para medir o investimento estatal e privado chinês." },
+            { termos: ["press conference", "conferencia de imprensa", "fomc", "ecb", "boj", "boe"], desc: "Conferência de imprensa do Banco Central. Os governadores explicam as decisões de política monetária e dão pistas sobre futuras subidas ou descidas de juros." },
+            { termos: ["rate decision", "interest rate", "taxa de juro"], desc: "Decisão sobre a Taxa de Juro Director do Banco Central. O evento macroeconómico de maior impacto estrutural nas bolsas e no câmbio." },
+            { termos: ["inventories", "stocks"], desc: "Mede o valor dos bens não vendidos nas empresas. Aumentos excessivos podem indicar abrandamento da procura consumidora." }
+        ];
+
+        function obterIndicesAfetados(moeda) {
+            switch(moeda) {
+                case "USD": return "US30 (Dow Jones), US500 (S&P500), NAS100 (Nasdaq)";
+                case "EUR": return "GER40 (DAX), FRA40 (CAC40)";
+                case "GBP": return "UK100 (FTSE 100)";
+                case "JPY": return "JPN225 (Nikkei 225)";
+                case "HKD":
+                case "CNY": return "HK50 (Hang Seng)";
+                default: return "Todos os mercados globais";
+            }
+        }
+
+        function obterExplicacao(evento) {
+            const evLower = evento.toLowerCase();
+            for (let item of glossario) {
+                if (item.termos.some(t => evLower.includes(t))) {
+                    return item.desc;
+                }
+            }
+            return "Indicador macroeconómico de acompanhamento periódico. Alterações significativas em relação à previsão geram volatilidade intradiária nos índices da respetiva região.";
+        }
+
+        function abrirModal(rowJson) {
+            const row = JSON.parse(decodeURIComponent(rowJson));
+            const [dataHora, moeda, impacto, evento, previsao, anterior, real] = row;
+
+            document.getElementById("modalMoeda").innerText = moeda;
+            document.getElementById("modalTitulo").innerText = evento;
+            document.getElementById("modalIndices").innerText = obterIndicesAfetados(moeda);
+            document.getElementById("modalExplicacao").innerText = obterExplicacao(evento);
+            
+            document.getElementById("modalReal").innerText = real || "N/A";
+            document.getElementById("modalPrevisao").innerText = previsao || "N/A";
+            document.getElementById("modalAnterior").innerText = anterior || "N/A";
+
+            const elImpacto = document.getElementById("modalImpacto");
+            elImpacto.innerText = impacto;
+            elImpacto.className = "text-xs px-2 py-1 rounded font-semibold " + 
+                (impacto === "High" ? "bg-high" : impacto === "Holiday" ? "bg-holiday" : "bg-medium");
+
+            const queryGoogle = encodeURIComponent(`${evento} ${moeda} noticia economia trading`);
+            document.getElementById("modalLinkGoogle").href = `https://www.google.com/search?q=${queryGoogle}`;
+
+            document.getElementById("modalDetalhes").classList.remove("hidden");
+        }
+
+        function fecharModal() {
+            document.getElementById("modalDetalhes").classList.add("hidden");
+        }
+
+        function renderTabela(lista) {
+            const corpo = document.getElementById("tabelaCorpo");
+            corpo.innerHTML = "";
+            
+            if (lista.length === 0) {
+                document.getElementById("semResultados").classList.remove("hidden");
+                return;
+            } else {
+                document.getElementById("semResultados").classList.add("hidden");
+            }
+
+            lista.forEach(row => {
+                const [dataHora, moeda, impacto, evento, previsao, anterior, real] = row;
+                
+                let badgeClass = "bg-medium";
+                if (impacto === "High") badgeClass = "bg-high";
+                if (impacto === "Holiday") badgeClass = "bg-holiday";
+
+                const rowEncoded = encodeURIComponent(JSON.stringify(row));
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-800/60 cursor-pointer transition-colors border-b border-slate-800/50";
+                tr.onclick = (e) => {
+                    if (e.target.tagName !== 'A') abrirModal(rowEncoded);
+                };
+
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-xs text-slate-300">${dataHora}</td>
+                    <td class="p-3 font-bold text-slate-200">${moeda}</td>
+                    <td class="p-3"><span class="px-2 py-1 text-xs rounded font-semibold ${badgeClass}">${impacto}</span></td>
+                    <td class="p-3 font-medium text-slate-100">${evento}</td>
+                    <td class="p-3 text-right font-mono font-bold text-emerald-400">${real || 'N/A'}</td>
+                    <td class="p-3 text-right font-mono text-slate-300">${previsao}</td>
+                    <td class="p-3 text-right font-mono text-slate-400">${anterior}</td>
+                    <td class="p-3 text-center">
+                        <button class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-2 py-1 rounded">ℹ️ Info</button>
+                    </td>
+                `;
+                corpo.appendChild(tr);
+            });
+        }
+
+        function filtrarTabela() {
+            const periodo = document.getElementById("periodoFilter").value;
+            const ordem = document.getElementById("ordemFilter").value;
+            const search = document.getElementById("searchInput").value.toLowerCase();
+            const moeda = document.getElementById("moedaFilter").value;
+            const impacto = document.getElementById("impactoFilter").value;
+
+            let filtrados = dados.filter(row => {
+                const [dataHora, m, imp, evento] = row;
+                const dataDataHora = dataHora.substring(0, 10);
+
+                let matchPeriodo = true;
+                if (periodo === "SEMANA_ATUAL") {
+                    matchPeriodo = (dataDataHora >= inicioAtual && dataDataHora <= fimAtual);
+                } else if (periodo === "PROXIMA_SEMANA") {
+                    matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx);
+                } else if (periodo === "ULTIMOS_30") {
+                    matchPeriodo = (dataDataHora >= trintaDiasAtrasStr && dataDataHora <= hojeStr);
+                }
+
+                const matchSearch = evento.toLowerCase().includes(search);
+                
+                let matchMoeda = true;
+                if (moeda === "HKD") {
+                    matchMoeda = (m === "HKD" || m === "CNY");
+                } else if (moeda !== "TODAS") {
+                    matchMoeda = (m === moeda);
+                }
+
+                const matchImpacto = (impacto === "TODOS" || imp === impacto);
+
+                return matchPeriodo && matchSearch && matchMoeda && matchImpacto;
+            });
+
+            filtrados.sort((a, b) => {
+                if (ordem === "ASC") {
+                    return a[0].localeCompare(b[0]);
+                } else {
+                    return b[0].localeCompare(a[0]);
+                }
+            });
+
+            renderTabela(filtrados);
+        }
+
+        filtrarTabela();
+    </script>
+</body>
+</html>
