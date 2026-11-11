@@ -288,7 +288,7 @@
                 } else if (periodo === "AMANHA") {  
                     matchPeriodo = (dataDataHora === amanhaStr);
                 } else if (periodo === "PROXIMA_SEMANA") {
-                  matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx); 
+                    matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx); 
                 } else if (periodo === "ULTIMOS_30") {
                     matchPeriodo = (dataDataHora >= trintaDiasAtrasStr && dataDataHora <= hojeStr);
                 }
@@ -307,11 +307,12 @@
                 return matchPeriodo && matchSearch && matchMoeda && matchImpacto;
             });
 
+            // Ordenação por Data/Hora + Nome do Evento (Desempate perfeito)
             filtrados.sort((a, b) => {
                 if (ordem === "ASC") {
-                    return a[0].localeCompare(b[0]);
+                    return a[0].localeCompare(b[0]) || a[3].localeCompare(b[3]);
                 } else {
-                    return b[0].localeCompare(a[0]);
+                    return b[0].localeCompare(a[0]) || b[3].localeCompare(a[3]);
                 }
             });
 
