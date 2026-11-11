@@ -12,11 +12,15 @@ PAISES_ALVO = "US,EU,DE,FR,GB,JP,HK,CN"
 MOEDAS_ALVO = {"USD", "EUR", "GBP", "JPY", "HKD", "CNY"}
 NOME_TEMPLATE = "template.html"
 
-# Configurações do Telegram Alertas
-TELEGRAM_TOKEN = "8709958918:AAHY2kjshx5FCXwdAD_Jh5xyhdzn0QMEMZY"
-TELEGRAM_CHAT_ID = "-5544308887"
+# Configurações de Variáveis de Ambiente para o Telegram
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-5544308887")
 
 def enviar_mensagem_telegram(texto):
+    if not TELEGRAM_TOKEN:
+        print("TELEGRAM_TOKEN não configurado nas variáveis de ambiente.")
+        return
+        
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     partes = [texto[i:i+3900] for i in range(0, len(texto), 3900)]
     
@@ -53,17 +57,25 @@ def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
 
 def obter_dados_macro():
     hoje = datetime.now()
-    trinta_dias_atras = hoje - timedelta(days=30)
-    duas_semanas_frente = hoje + timedelta(days=14)
+    segunda_atual = hoje - timedelta(days=hoje.weekday())
 
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    dados_passados = descarregar_noticias_intervalo(trinta_dias_atras.strftime("%Y-%m-%d"), hoje.strftime("%Y-%m-%d"), ctx)
-    dados_futuros = descarregar_noticias_intervalo(hoje.strftime("%Y-%m-%d"), duas_semanas_frente.strftime("%Y-%m-%d"), ctx)
+    # Gera blocos semanais de 7 dias (-4 semanas até +1 semana futura)
+    # Evita o corte de dados por limite da resposta da API
+    blocos = []
+    for i in range(-4, 2):
+        inicio = segunda_atual + timedelta(weeks=i)
+        fim = inicio + timedelta(days=6)
+        blocos.append((inicio.strftime("%Y-%m-%d"), fim.strftime("%Y-%m-%d")))
 
-    todos_dados = dados_passados + dados_futuros
+    todos_dados = []
+    for inicio, fim in blocos:
+        dados_bloco = descarregar_noticias_intervalo(inicio, fim, ctx)
+        todos_dados.extend(dados_bloco)
+
     todos_registos = []
     chaves_vistas = set()
 
@@ -141,7 +153,6 @@ def dashboard():
 
     return render_template_string(html_content)
 
-# Endereço secreto para disparar o alerta via Cron Job Online
 @app.route("/disparar-alerta-telegram-fd2026")
 def disparar_alerta():
     hoje = datetime.now()
