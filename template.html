@@ -48,6 +48,7 @@
                 <label class="block text-xs text-slate-400 mb-1">Período de Tempo:</label>
                 <select id="periodoFilter" onchange="filtrarTabela()" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-medium">
                     <option value="SEMANA_ATUAL" selected>Semana Atual (Corrente)</option>
+                    <option value="AMANHA">Amanhã</option>
                     <option value="PROXIMA_SEMANA">Próxima Semana (Planeamento)</option>
                     <option value="ULTIMOS_30">Últimos 30 Dias</option>
                     <option value="TODOS">Todo o Histórico Acumulado</option>
@@ -159,6 +160,7 @@
         const dados = __DADOS_JSON__;
         const inicioAtual = "__DATA_INICIO_ATUAL__";
         const fimAtual = "__DATA_FIM_ATUAL__";
+        const amanhaStr = "__AMANHA_STR__";
         const inicioProx = "__DATA_INICIO_PROX__";
         const fimProx = "__DATA_FIM_PROX__";
         const hojeStr = "__HOJE_STR__";
@@ -284,7 +286,9 @@
                 if (periodo === "SEMANA_ATUAL") {
                     matchPeriodo = (dataDataHora >= inicioAtual && dataDataHora <= fimAtual);
                 } else if (periodo === "PROXIMA_SEMANA") {
-                    matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx);
+                  matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx); }
+                else if (periodo === "AMANHA") { 
+                    matchPeriodo = (dataDataHora === amanhaStr); }
                 } else if (periodo === "ULTIMOS_30") {
                     matchPeriodo = (dataDataHora >= trintaDiasAtrasStr && dataDataHora <= hojeStr);
                 }
