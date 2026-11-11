@@ -84,6 +84,7 @@ def obter_dados_macro():
 @app.route("/")
 def dashboard():
     hoje = datetime.now()
+    amanha = hoje + timedelta(days=1)
     segunda_atual = hoje - timedelta(days=hoje.weekday())
     domingo_atual = segunda_atual + timedelta(days=6)
     segunda_prox = segunda_atual + timedelta(days=7)
@@ -92,6 +93,7 @@ def dashboard():
 
     inicio_atual = segunda_atual.strftime("%Y-%m-%d")
     fim_atual = domingo_atual.strftime("%Y-%m-%d")
+    amanha_str = amanha.strftime("%Y-%m-%d")
     inicio_prox = segunda_prox.strftime("%Y-%m-%d")
     fim_prox = domingo_prox.strftime("%Y-%m-%d")
     hoje_str = hoje.strftime("%Y-%m-%d")
@@ -110,6 +112,7 @@ def dashboard():
         html_template
         .replace("__DATA_INICIO_ATUAL__", inicio_atual)
         .replace("__DATA_FIM_ATUAL__", fim_atual)
+        .replace("__AMANHA_STR__", amanha_str)
         .replace("__DATA_INICIO_PROX__", inicio_prox)
         .replace("__DATA_FIM_PROX__", fim_prox)
         .replace("__HOJE_STR__", hoje_str)
