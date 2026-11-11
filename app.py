@@ -58,24 +58,28 @@ def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
 def obter_dados_macro():
     hoje = datetime.now()
     segunda_atual = hoje - timedelta(days=hoje.weekday())
+    domingo_prox = segunda_atual + timedelta(days=13)
+    trinta_dias_atras = hoje - timedelta(days=30)
 
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    # Gera blocos semanais de 7 dias (-4 semanas até +1 semana futura)
-    # Evita o corte de dados por limite da resposta da API
-    blocos = []
-    for i in range(-4, 2):
-        inicio = segunda_atual + timedelta(weeks=i)
-        fim = inicio + timedelta(days=6)
-        blocos.append((inicio.strftime("%Y-%m-%d"), fim.strftime("%Y-%m-%d")))
+    # 1. Histórico Passado (dos 30 dias atrás até ao início desta semana)
+    dados_passados = descarregar_noticias_intervalo(
+        trinta_dias_atras.strftime("%Y-%m-%d"), 
+        (segunda_atual - timedelta(days=1)).strftime("%Y-%m-%d"), 
+        ctx
+    )
 
-    todos_dados = []
-    for inicio, fim in blocos:
-        dados_bloco = descarregar_noticias_intervalo(inicio, fim, ctx)
-        todos_dados.extend(dados_bloco)
+    # 2. Período Contínuo: Segunda-feira Atual até ao Domingo da Próxima Semana (14 Dias)
+    dados_futuros = descarregar_noticias_intervalo(
+        segunda_atual.strftime("%Y-%m-%d"), 
+        domingo_prox.strftime("%Y-%m-%d"), 
+        ctx
+    )
 
+    todos_dados = dados_passados + dados_futuros
     todos_registos = []
     chaves_vistas = set()
 
