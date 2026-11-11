@@ -12,17 +12,7 @@ PAISES_ALVO = "US,EU,DE,FR,GB,JP,HK,CN"
 MOEDAS_ALVO = {"USD", "EUR", "GBP", "JPY", "HKD", "CNY"}
 NOME_TEMPLATE = "template.html"
 
-def obter_blocos_semanais():
-    hoje = datetime.now()
-    segunda_atual = hoje - timedelta(days=hoje.weekday())
-    blocos = []
-    for i in range(-4, 2):
-        inicio = segunda_atual + timedelta(weeks=i)
-        fim = inicio + timedelta(days=6)
-        blocos.append((inicio.strftime("%Y-%m-%d"), fim.strftime("%Y-%m-%d")))
-    return blocos
-
-def descarregar_noticias_bloco(data_inicio, data_fim, ctx):
+def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
     params = urllib.parse.urlencode({
         'countries': PAISES_ALVO,
         'from': f"{data_inicio}T00:00:00Z",
@@ -32,51 +22,58 @@ def descarregar_noticias_bloco(data_inicio, data_fim, ctx):
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'})
 
     try:
-        with urllib.request.urlopen(req, context=ctx, timeout=12) as response:
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as response:
             return json.loads(response.read().decode())
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao descarregar {data_inicio} a {data_fim}: {e}")
         return []
 
 def obter_dados_macro():
-    blocos = obter_blocos_semanais()
+    hoje = datetime.now()
+    trinta_dias_atras = hoje - timedelta(days=30)
+    duas_semanas_frente = hoje + timedelta(days=14)
+
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
+    # Faz apenas 2 pedidos em vez de 6 para carregar instantaneamente no Render
+    dados_passados = descarregar_noticias_intervalo(trinta_dias_atras.strftime("%Y-%m-%d"), hoje.strftime("%Y-%m-%d"), ctx)
+    dados_futuros = descarregar_noticias_intervalo(hoje.strftime("%Y-%m-%d"), duas_semanas_frente.strftime("%Y-%m-%d"), ctx)
+
+    todos_dados = dados_passados + dados_futuros
     todos_registos = []
     chaves_vistas = set()
 
-    for inicio, fim in blocos:
-        dados = descarregar_noticias_bloco(inicio, fim, ctx)
-        for item in dados:
-            moeda = item.get("currency", item.get("countryCode", "")).upper()
-            mapeamento_moedas = {
-                "US": "USD", "EU": "EUR", "DE": "EUR", "FR": "EUR",
-                "GB": "GBP", "JP": "JPY", "HK": "HKD", "CN": "CNY"
-            }
-            moeda = mapeamento_moedas.get(moeda, moeda)
+    for item in todos_dados:
+        moeda = item.get("currency", item.get("countryCode", "")).upper()
+        mapeamento_moedas = {
+            "US": "USD", "EU": "EUR", "DE": "EUR", "FR": "EUR",
+            "GB": "GBP", "JP": "JPY", "HK": "HKD", "CN": "CNY"
+        }
+        moeda = mapeamento_moedas.get(moeda, moeda)
 
-            importance = str(item.get("importance", "")).capitalize()
-            tipo = str(item.get("type", "")).lower()
+        importance = str(item.get("importance", "")).capitalize()
+        tipo = str(item.get("type", "")).lower()
 
-            if (importance in ["Medium", "High"] or tipo == "holiday") and moeda in MOEDAS_ALVO:
-                impacto_final = "Holiday" if tipo == "holiday" else importance
-                data_evento = str(item.get("time", ""))[:16].replace("T", " ")
-                nome_evento = str(item.get("name", "")).strip()
+        if (importance in ["Medium", "High"] or tipo == "holiday") and moeda in MOEDAS_ALVO:
+            impacto_final = "Holiday" if tipo == "holiday" else importance
+            data_evento = str(item.get("time", ""))[:16].replace("T", " ")
+            nome_evento = str(item.get("name", "")).strip()
 
-                chave = (data_evento, moeda, nome_evento)
-                if chave not in chaves_vistas:
-                    chaves_vistas.add(chave)
-                    
-                    previsao_val = item.get("forecast")
-                    anterior_val = item.get("previous")
-                    real_val = item.get("actual")
+            chave = (data_evento, moeda, nome_evento)
+            if chave not in chaves_vistas:
+                chaves_vistas.add(chave)
+                
+                previsao_val = item.get("forecast")
+                anterior_val = item.get("previous")
+                real_val = item.get("actual")
 
-                    previsao = str(previsao_val) if previsao_val is not None else "N/A"
-                    anterior = str(anterior_val) if anterior_val is not None else "N/A"
-                    real = str(real_val) if real_val is not None else "N/A"
+                previsao = str(previsao_val) if previsao_val is not None else "N/A"
+                anterior = str(anterior_val) if anterior_val is not None else "N/A"
+                real = str(real_val) if real_val is not None else "N/A"
 
-                    todos_registos.append([data_evento, moeda, impacto_final, nome_evento, previsao, anterior, real])
+                todos_registos.append([data_evento, moeda, impacto_final, nome_evento, previsao, anterior, real])
 
     todos_registos.sort(key=lambda x: x[0])
     return todos_registos
