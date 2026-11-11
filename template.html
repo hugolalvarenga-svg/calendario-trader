@@ -285,10 +285,10 @@
                 let matchPeriodo = true;
                 if (periodo === "SEMANA_ATUAL") {
                     matchPeriodo = (dataDataHora >= inicioAtual && dataDataHora <= fimAtual);
+                } else if (periodo === "AMANHA") {  
+                    matchPeriodo = (dataDataHora === amanhaStr);
                 } else if (periodo === "PROXIMA_SEMANA") {
-                  matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx); }
-                else if (periodo === "AMANHA") { 
-                    matchPeriodo = (dataDataHora === amanhaStr); }
+                  matchPeriodo = (dataDataHora >= inicioProx && dataDataHora <= fimProx); 
                 } else if (periodo === "ULTIMOS_30") {
                     matchPeriodo = (dataDataHora >= trintaDiasAtrasStr && dataDataHora <= hojeStr);
                 }
