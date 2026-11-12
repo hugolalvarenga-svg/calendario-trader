@@ -14,32 +14,46 @@ MOEDAS_ALVO = {"USD", "EUR", "GBP", "JPY", "HKD", "CNY"}
 NOME_TEMPLATE = "template.html"
 
 # Configurações de Variáveis de Ambiente para o Telegram
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-5544308887")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-5544308887").strip()
 
 
 def enviar_mensagem_telegram(texto):
     if not TELEGRAM_TOKEN:
-        print("TELEGRAM_TOKEN não configurado nas variáveis de ambiente.")
-        return
+        return False, "Erro: Variável TELEGRAM_TOKEN não encontrada ou vazia no Render."
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     partes = [texto[i:i+3900] for i in range(0, len(texto), 3900)]
 
     for parte in partes:
-        dados = urllib.parse.urlencode({
+        payload = {
             "chat_id": TELEGRAM_CHAT_ID,
             "text": parte,
             "parse_mode": "Markdown",
             "disable_web_page_preview": True
-        }).encode("utf-8")
-
+        }
+        dados = urllib.parse.urlencode(payload).encode("utf-8")
         req = urllib.request.Request(url, data=dados)
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 pass
+        except urllib.request.HTTPError as e:
+            erro_detalhe = e.read().decode("utf-8", errors="ignore")
+            # Se falhar por caracteres especiais no Markdown, reenvia em texto simples
+            if e.code == 400 and "parse entities" in erro_detalhe:
+                payload.pop("parse_mode")
+                dados_simples = urllib.parse.urlencode(payload).encode("utf-8")
+                req_simples = urllib.request.Request(url, data=dados_simples)
+                try:
+                    with urllib.request.urlopen(req_simples, timeout=10) as resp2:
+                        continue
+                except Exception as e2:
+                    return False, f"Erro Telegram (texto simples): {e2}"
+            return False, f"Erro Telegram ({e.code}): {erro_detalhe}"
         except Exception as e:
-            print(f"Erro ao enviar mensagem Telegram: {e}")
+            return False, f"Erro de ligação ao Telegram: {e}"
+
+    return True, "Alerta enviado com sucesso para o Telegram!"
 
 
 def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
@@ -83,7 +97,6 @@ def obter_dados_macro():
     intervalos.append((amanha_str, amanha_str))
 
     todos_dados = []
-    # Executa os pedidos em paralelo para carregar em ~1-2 segundos no Render
     with ThreadPoolExecutor(max_workers=8) as executor:
         futuros = [
             executor.submit(descarregar_noticias_intervalo, ini, fim, ctx)
@@ -248,8 +261,8 @@ def disparar_alerta():
 
     if not eventos_filtrados:
         corpo = "✅ *Sem registos:* Não existem eventos de Alto Impacto nem Feriados agendados para este período."
-        enviar_mensagem_telegram(cabecalho + corpo)
-        return "Alerta de ausência enviado.", 200
+        sucesso, msg = enviar_mensagem_telegram(cabecalho + corpo)
+        return msg, (200 if sucesso else 500)
 
     corpo = ""
     data_atual_grupo = ""
@@ -272,9 +285,9 @@ def disparar_alerta():
             corpo += f"  • `{hora_ev} UTC` | *{ev['moeda']}* {icone}\n    📌 *{ev['evento']}*\n    📊 Prev: `{ev['previsao']}` | Ant: `{ev['anterior']}`\n"
 
     mensagem_final = cabecalho + corpo + "\n⚠️ *Farol Decimal:* Verifique a gestão de risco dos pares e índices associados."
-    enviar_mensagem_telegram(mensagem_final)
+    sucesso, msg = enviar_mensagem_telegram(mensagem_final)
 
-    return "Alerta enviado com sucesso para o Telegram!", 200
+    return msg, (200 if sucesso else 500)
 
 
 if __name__ == "__main__":
