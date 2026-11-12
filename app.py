@@ -1,4 +1,5 @@
 from flask import Flask, render_template_string
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import urllib.request
 import urllib.parse
@@ -16,14 +17,15 @@ NOME_TEMPLATE = "template.html"
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-5544308887")
 
+
 def enviar_mensagem_telegram(texto):
     if not TELEGRAM_TOKEN:
         print("TELEGRAM_TOKEN não configurado nas variáveis de ambiente.")
         return
-        
+
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     partes = [texto[i:i+3900] for i in range(0, len(texto), 3900)]
-    
+
     for parte in partes:
         dados = urllib.parse.urlencode({
             "chat_id": TELEGRAM_CHAT_ID,
@@ -31,13 +33,14 @@ def enviar_mensagem_telegram(texto):
             "parse_mode": "Markdown",
             "disable_web_page_preview": True
         }).encode("utf-8")
-        
+
         req = urllib.request.Request(url, data=dados)
         try:
             with urllib.request.urlopen(req) as response:
                 pass
         except Exception as e:
             print(f"Erro ao enviar mensagem Telegram: {e}")
+
 
 def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
     params = urllib.parse.urlencode({
@@ -55,26 +58,39 @@ def descarregar_noticias_intervalo(data_inicio, data_fim, ctx):
         print(f"Erro ao descarregar {data_inicio} a {data_fim}: {e}")
         return []
 
+
 def obter_dados_macro():
     hoje = datetime.now()
+    amanha = hoje + timedelta(days=1)
     segunda_atual = hoje - timedelta(days=hoje.weekday())
+    domingo_prox = segunda_atual + timedelta(days=13)
+    inicio_historico = hoje - timedelta(days=31)
 
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    # Divide a consulta em 6 blocos de 7 dias (-4 semanas passadas até +1 semana futura)
-    # Impede que a API estoure o limite de registos por resposta
+    # Divide o período total em blocos pequenos de 3 dias para nunca atingir o limite da API
+    intervalos = []
+    cursor = inicio_historico
+    while cursor <= domingo_prox:
+        fim_bloco = min(cursor + timedelta(days=2), domingo_prox)
+        intervalos.append((cursor.strftime("%Y-%m-%d"), fim_bloco.strftime("%Y-%m-%d")))
+        cursor = fim_bloco + timedelta(days=1)
+
+    # Garante também um pedido isolado exclusivo para o dia de amanhã
+    amanha_str = amanha.strftime("%Y-%m-%d")
+    intervalos.append((amanha_str, amanha_str))
+
     todos_dados = []
-    for i in range(-4, 2):
-        inicio_bloco = segunda_atual + timedelta(weeks=i)
-        fim_bloco = inicio_bloco + timedelta(days=6)
-        dados_bloco = descarregar_noticias_intervalo(
-            inicio_bloco.strftime("%Y-%m-%d"), 
-            fim_bloco.strftime("%Y-%m-%d"), 
-            ctx
-        )
-        todos_dados.extend(dados_bloco)
+    # Executa os pedidos em paralelo para carregar em ~1-2 segundos no Render
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futuros = [
+            executor.submit(descarregar_noticias_intervalo, ini, fim, ctx)
+            for ini, fim in intervalos
+        ]
+        for futuro in as_completed(futuros):
+            todos_dados.extend(futuro.result())
 
     todos_registos = []
     chaves_vistas = set()
@@ -98,7 +114,7 @@ def obter_dados_macro():
             chave = (data_evento, moeda, nome_evento)
             if chave not in chaves_vistas:
                 chaves_vistas.add(chave)
-                
+
                 previsao_val = item.get("forecast")
                 anterior_val = item.get("previous")
                 real_val = item.get("actual")
@@ -109,8 +125,9 @@ def obter_dados_macro():
 
                 todos_registos.append([data_evento, moeda, impacto_final, nome_evento, previsao, anterior, real])
 
-    todos_registos.sort(key=lambda x: x[0])
+    todos_registos.sort(key=lambda x: (x[0], x[3]))
     return todos_registos
+
 
 @app.route("/")
 def dashboard():
@@ -153,6 +170,7 @@ def dashboard():
 
     return render_template_string(html_content)
 
+
 @app.route("/disparar-alerta-telegram-fd2026")
 def disparar_alerta():
     hoje = datetime.now()
@@ -164,6 +182,8 @@ def disparar_alerta():
 
     if eh_sexta:
         segunda_prox = hoje + timedelta(days=(7 - hoje.weekday()))
+        quarta_prox = segunda_prox + timedelta(days=2)
+        quinta_prox = segunda_prox + timedelta(days=3)
         domingo_prox = segunda_prox + timedelta(days=6)
         data_inicio = segunda_prox.strftime("%Y-%m-%d")
         data_fim = domingo_prox.strftime("%Y-%m-%d")
@@ -172,6 +192,11 @@ def disparar_alerta():
             f"🗓️ *Período:* {data_inicio} a {data_fim}\n"
             f"🎯 *Filtro:* Alto Impacto & Feriados Bancários\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        )
+        # Divide a próxima semana em 2 blocos para evitar cortes no alerta de sexta-feira
+        dados_brutos = (
+            descarregar_noticias_intervalo(data_inicio, quarta_prox.strftime("%Y-%m-%d"), ctx) +
+            descarregar_noticias_intervalo(quinta_prox.strftime("%Y-%m-%d"), data_fim, ctx)
         )
     else:
         amanha = hoje + timedelta(days=1)
@@ -183,8 +208,8 @@ def disparar_alerta():
             f"🎯 *Filtro:* Alto Impacto & Feriados Bancários\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         )
+        dados_brutos = descarregar_noticias_intervalo(data_inicio, data_fim, ctx)
 
-    dados_brutos = descarregar_noticias_intervalo(data_inicio, data_fim, ctx)
     eventos_filtrados = []
     chaves_vistas = set()
 
@@ -209,7 +234,7 @@ def disparar_alerta():
                 chaves_vistas.add(chave)
                 prev = str(item.get("forecast")) if item.get("forecast") is not None else "N/A"
                 ant = str(item.get("previous")) if item.get("previous") is not None else "N/A"
-                
+
                 eventos_filtrados.append({
                     "data_hora": data_hora,
                     "moeda": moeda,
@@ -219,7 +244,7 @@ def disparar_alerta():
                     "anterior": ant
                 })
 
-    eventos_filtrados.sort(key=lambda x: x["data_hora"])
+    eventos_filtrados.sort(key=lambda x: (x["data_hora"], x["evento"]))
 
     if not eventos_filtrados:
         corpo = "✅ *Sem registos:* Não existem eventos de Alto Impacto nem Feriados agendados para este período."
@@ -231,7 +256,7 @@ def disparar_alerta():
 
     for ev in eventos_filtrados:
         data_ev, hora_ev = ev["data_hora"].split(" ")
-        
+
         if eh_sexta and data_ev != data_atual_grupo:
             data_atual_grupo = data_ev
             dt_obj = datetime.strptime(data_ev, "%Y-%m-%d")
@@ -240,7 +265,7 @@ def disparar_alerta():
             corpo += f"\n📆 *{nome_dia} ({data_ev[8:10]}/{data_ev[5:7]})*\n"
 
         icone = "🔴 [HIGH]" if ev["impacto"] == "High" else "🏦 [FERIADO]"
-        
+
         if ev["impacto"] == "Holiday":
             corpo += f"  • `{hora_ev}` | *{ev['moeda']}* {icone}\n    📌 *{ev['evento']}*\n"
         else:
@@ -248,8 +273,9 @@ def disparar_alerta():
 
     mensagem_final = cabecalho + corpo + "\n⚠️ *Farol Decimal:* Verifique a gestão de risco dos pares e índices associados."
     enviar_mensagem_telegram(mensagem_final)
-    
+
     return "Alerta enviado com sucesso para o Telegram!", 200
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
