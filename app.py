@@ -116,8 +116,17 @@ def obter_dados_macro():
         }
         moeda = mapeamento_moedas.get(moeda, moeda)
 
-        importance = str(item.get("importance", "")).capitalize()
+       importance = str(item.get("importance", "")).capitalize()
         tipo = str(item.get("type", "")).lower()
+        nome_evento = str(item.get("name", "")).strip()
+        nome_lower = nome_evento.lower()
+
+        # Captura discursos do Fed e principais Bancos Centrais mesmo que venham como "Low"
+        palavras_discurso = ["fed ", "fomc", "powell", "ecb ", "lagarde", "boe ", "bailey", "boj ", "ueda", "speech"]
+        eh_discurso_relevante = any(p in nome_lower for p in palavras_discurso)
+
+        if eh_discurso_relevante and importance == "Low":
+            importance = "Medium"
 
         if (importance in ["Medium", "High"] or tipo == "holiday") and moeda in MOEDAS_ALVO:
             impacto_final = "Holiday" if tipo == "holiday" else importance
@@ -234,10 +243,19 @@ def disparar_alerta():
         }
         moeda = mapeamento_moedas.get(moeda, moeda)
 
-        importance = str(item.get("importance", "")).capitalize()
+       importance = str(item.get("importance", "")).capitalize()
         tipo = str(item.get("type", "")).lower()
+        nome_evento = str(item.get("name", "")).strip()
+        nome_lower = nome_evento.lower()
 
-        if (importance == "High" or tipo == "holiday") and moeda in MOEDAS_ALVO:
+        # Captura discursos do Fed e principais Bancos Centrais mesmo que venham como "Low"
+        palavras_discurso = ["fed ", "fomc", "powell", "ecb ", "lagarde", "boe ", "bailey", "boj ", "ueda", "speech"]
+        eh_discurso_relevante = any(p in nome_lower for p in palavras_discurso)
+
+        if eh_discurso_relevante and importance == "Low":
+            importance = "Medium"
+
+        if (importance in ["Medium", "High"] or tipo == "holiday") and moeda in MOEDAS_ALVO:
             impacto_final = "Holiday" if tipo == "holiday" else "High"
             data_hora = str(item.get("time", ""))[:16].replace("T", " ")
             nome = str(item.get("name", "")).strip()
